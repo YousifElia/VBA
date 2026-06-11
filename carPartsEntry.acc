@@ -1,0 +1,154 @@
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Load()
+' Loading dropsdowns, and the search result
+    RefreshSearchDropdowns
+    LoadSearchResults
+
+End Sub
+
+Private Sub RefreshSearchDropdowns()
+' Dropdown search, when clicking an item, using SQL
+    Me.cboSearchCategory.RowSource = _
+        "SELECT DISTINCT Category FROM tbleCarParts " & _
+        "WHERE Category Is Not Null ORDER BY Category;"
+
+    Me.cboSearchBrand.RowSource = _
+        "SELECT DISTINCT Brand FROM tbleCarParts " & _
+        "WHERE Brand Is Not Null ORDER BY Brand;"
+
+    Me.cboSearchVehicle.RowSource = _
+        "SELECT DISTINCT VehicleModel FROM tbleCarParts " & _
+        "WHERE VehicleModel Is Not Null ORDER BY VehicleModel;"
+
+    Me.cboSearchCategory.Requery
+    Me.cboSearchBrand.Requery
+    Me.cboSearchVehicle.Requery
+
+End Sub
+
+Private Sub LoadSearchResults(Optional ByVal strWhere As String = "")
+' Loading Search button with filters
+    Dim strSQL As String
+
+    strSQL = "SELECT PartID, PartName, Category, Brand, Price, Quantity, VehicleModel " & _
+             "FROM tbleCarParts "
+' Checks Filter
+    If strWhere <> "" Then
+        strSQL = strSQL & "WHERE " & strWhere & " "
+    End If
+' Alphabetical search result
+    strSQL = strSQL & "ORDER BY PartName;"
+
+    Me.lstSearchResults.RowSource = strSQL
+    Me.lstSearchResults.Requery
+
+End Sub
+
+Private Sub cmdSearch_Click()
+' Check each dropdown, and checks the searchpart
+    Dim strWhere As String
+
+    strWhere = ""
+
+    If Nz(Me.txtSearchPart, "") <> "" Then
+        strWhere = strWhere & "PartName LIKE '*" & Replace(Me.txtSearchPart, "'", "''") & "*' AND "
+    End If
+
+    If Nz(Me.cboSearchCategory, "") <> "" Then
+        strWhere = strWhere & "Category = '" & Replace(Me.cboSearchCategory, "'", "''") & "' AND "
+    End If
+
+    If Nz(Me.cboSearchBrand, "") <> "" Then
+        strWhere = strWhere & "Brand = '" & Replace(Me.cboSearchBrand, "'", "''") & "' AND "
+    End If
+
+    If Nz(Me.cboSearchVehicle, "") <> "" Then
+        strWhere = strWhere & "VehicleModel = '" & Replace(Me.cboSearchVehicle, "'", "''") & "' AND "
+    End If
+
+    If Len(strWhere) > 0 Then
+        strWhere = Left(strWhere, Len(strWhere) - 5)
+    End If
+
+    LoadSearchResults strWhere
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Fields, and Search become empty
+    Me.txtSearchPart = Null
+    Me.cboSearchCategory = Null
+    Me.cboSearchBrand = Null
+    Me.cboSearchVehicle = Null
+
+    LoadSearchResults
+
+End Sub
+
+Private Sub btnAddPart_Click()
+'Nz to avoid Null Errors, Replace to handle ('), Brakes = 'Brakes'
+    Dim sql As String
+
+    sql = "INSERT INTO tbleCarParts " & _
+          "(PartName, Category, Brand, Price, Quantity, VehicleModel) " & _
+          "VALUES (" & _
+          "'" & Replace(Nz(Me.txtPartName, ""), "'", "''") & "', " & _
+          "'" & Replace(Nz(Me.txtCategory, ""), "'", "''") & "', " & _
+          "'" & Replace(Nz(Me.txtBrand, ""), "'", "''") & "', " & _
+          Val(Nz(Me.txtPrice, 0)) & ", " & _
+          Val(Nz(Me.txtQuantity, 0)) & ", " & _
+          "'" & Replace(Nz(Me.txtVehicleModel, ""), "'", "''") & "'" & _
+          ")"
+
+    CurrentDb.Execute sql, dbFailOnError ' Execute, with catch block
+
+    MsgBox "Part added successfully!"
+' When add button is pressed, it resets to empty
+    Me.txtPartName = Null
+    Me.txtCategory = Null
+    Me.txtBrand = Null
+    Me.txtPrice = Null
+    Me.txtQuantity = Null
+    Me.txtVehicleModel = Null
+
+    RefreshSearchDropdowns
+    LoadSearchResults
+
+    Me.txtPartName.SetFocus
+
+End Sub
+
+Private Sub btnExport_Click()
+' Shows where the export is, and exports it as an excel
+    Dim ExportPath As String
+
+    ExportPath = CurrentProject.Path & "\CarPartsExport.xlsx"
+
+    DoCmd.TransferSpreadsheet _
+        acExport, _
+        acSpreadsheetTypeExcel12Xml, _
+        "tbleCarParts", _
+        ExportPath, _
+        True
+
+    MsgBox "Export successful!" & vbCrLf & ExportPath
+
+End Sub
+' Updates listbox, when a field is selected
+Private Sub cboSearchBrand_AfterUpdate()
+    Call cmdSearch_Click
+End Sub
+
+Private Sub cboSearchVehicle_AfterUpdate()
+    Call cmdSearch_Click
+End Sub
+
+Private Sub cboSearchCategory_AfterUpdate()
+    Call cmdSearch_Click
+End Sub
+
+Private Sub txtSearchPart_AfterUpdate()
+    Call cmdSearch_Click
+End Sub
